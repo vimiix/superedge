@@ -37,8 +37,9 @@ func AccessHandler(msg *proto.StreamMsg) error {
 			1. Forward to remote proxyServer
 		 	2. Forward to cloud pod
 	*/
-	klog.V(3).InfoS("receive access msg", "nodeName", msg.GetNode(), "category", msg.GetCategory(), "type", msg.GetType(), "data", msg.GetData(), util.STREAM_TRACE_ID, msg.GetTopic())
-	//return the message that httpConnect connection establishment failed
+	klog.V(2).InfoS("receive access msg", "nodeName", msg.GetNode(),
+		"category", msg.GetCategory(), "type", msg.GetType(), util.STREAM_TRACE_ID, msg.GetTopic())
+	// return the message that httpConnect connection establishment failed
 	errMsg := func(node tunnelcontext.Node, respErr error) {
 		if node != nil {
 			node.Send2Node(&proto.StreamMsg{
@@ -52,7 +53,7 @@ func AccessHandler(msg *proto.StreamMsg) error {
 
 	}
 
-	//returns the message that the httpConnect connection was established successfully
+	// returns the message that the httpConnect connection was established successfully
 	successMsg := func(node tunnelcontext.Node) {
 		if node != nil {
 			node.Send2Node(&proto.StreamMsg{
@@ -100,7 +101,7 @@ func AccessHandler(msg *proto.StreamMsg) error {
 			return err
 		}
 
-		//Return 200 status code
+		// Return 200 status code
 		successMsg(node)
 		remoteCh := tunnelcontext.GetContext().AddConn(msg.GetTopic())
 		node.BindNode(msg.GetTopic())
@@ -151,7 +152,7 @@ func AccessHandler(msg *proto.StreamMsg) error {
 		}
 
 	case common.RemotePodType:
-		//Establish a connection with the remote proxyServer
+		// Establish a connection with the remote proxyServer
 		if remoteIp, ok := connect.Route.EdgeNode[info.nodeName]; ok {
 			remoteConn, err := common.GetRemoteConn(msg.GetCategory(), remoteIp)
 			if err != nil {
@@ -183,7 +184,7 @@ func AccessHandler(msg *proto.StreamMsg) error {
 				errMsg(localNode, respErr)
 				return respErr
 			}
-			//Return 200 status code
+			// Return 200 status code
 			successMsg(localNode)
 			remoteCh := tunnelcontext.GetContext().AddConn(msg.GetTopic())
 			localNode.BindNode(msg.GetTopic())
