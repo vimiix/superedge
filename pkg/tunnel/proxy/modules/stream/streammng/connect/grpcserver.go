@@ -18,6 +18,14 @@ package connect
 
 import (
 	"fmt"
+	"math"
+	"net"
+	"net/http"
+	"net/http/pprof"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/superedge/superedge/pkg/tunnel/conf"
@@ -33,12 +41,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	"k8s.io/klog/v2"
-	"math"
-	"net"
-	"net/http"
-	"os"
-	"strconv"
-	"time"
 )
 
 var kaep = keepalive.EnforcementPolicy{
@@ -79,6 +81,12 @@ func StartServer() {
 func StartLogServer(mode string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/flags/v", util.UpdateLogLevel)
+	// profiling
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	ser := &http.Server{
 		Handler: mux,
 	}
