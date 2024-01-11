@@ -120,6 +120,8 @@ func syncCache() error {
 	if err != nil {
 		return err
 	}
+	defer edgeNodeFile.Close()
+
 	updateFlag := false
 	// check edge node
 	edgeNodes := hosts2Array(edgeNodeFile)
@@ -335,20 +337,25 @@ func loadCacheFromLocalFile() error {
 	if err != nil {
 		return err
 	}
+	defer hosts.Close()
 
 	cloudNodeFile, err := os.Open(tunnelutil.CloudNodesFilePath)
 	if err != nil {
 		return err
 	}
+	defer cloudNodeFile.Close()
 
 	servicesFile, err := os.Open(tunnelutil.ServicesFilePath)
 	if err != nil {
 		return err
 	}
+	defer servicesFile.Close()
+
 	userServiceFile, err := os.Open(tunnelutil.UserServiceFilepath)
 	if err != nil {
 		return err
 	}
+	defer userServiceFile.Close()
 
 	for _, v := range hosts2Array(hosts) {
 		if len(v) != 2 {
@@ -384,7 +391,8 @@ func service2Array(fileread io.Reader) [][][]byte {
 	scanner := bufio.NewScanner(fileread)
 	hostsArray := [][][]byte{}
 	for scanner.Scan() {
-		f := bytes.Fields(scanner.Bytes())
+		// copy byte slice before append to hostsArray
+		f := bytes.Fields([]byte(scanner.Text()))
 		if len(f) == 2 {
 			hostsArray = append(hostsArray, f)
 		}

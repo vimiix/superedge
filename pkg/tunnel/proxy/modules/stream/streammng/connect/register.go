@@ -65,11 +65,13 @@ func InitRegister() error {
 }
 
 func (registerNode *RegisterNode) syncPodIP() error {
-	file, err := os.Open(util.TunnelCloudTokenPath)
+	file, err := os.Open(util.HostsPath)
 	if err != nil {
 		klog.ErrorS(err, "failed to load hosts")
 		return err
 	}
+	defer file.Close()
+
 	arrays := hosts2Array(file)
 	_, update := filterPodIp(arrays)
 	if !update {
@@ -103,6 +105,8 @@ func (registerNode *RegisterNode) syncEndpoints() error {
 		klog.Errorf("load hosts fail! err = %v", err)
 		return err
 	}
+	defer file.Close()
+
 	arrays := hosts2Array(file)
 	_, update := filterEndpoint(arrays)
 	if !update {
@@ -146,7 +150,7 @@ func SyncPodIP() {
 
 func SyncEndPoints() {
 	for {
-		time.Sleep(1 * time.Hour)
+		time.Sleep(10 * time.Minute)
 		klog.V(3).InfoS("connected node", "number", len(tunnelcontext.GetContext().GetNodes()), "nodes", tunnelcontext.GetContext().GetNodes())
 		err := register.syncEndpoints()
 		if err != nil {
@@ -163,7 +167,8 @@ func hosts2Array(fileread io.Reader) [][][]byte {
 	scanner := bufio.NewScanner(fileread)
 	hostsArray := [][][]byte{}
 	for scanner.Scan() {
-		f := bytes.Fields(scanner.Bytes())
+		// copy byte slice before append to hostsArray
+		f := bytes.Fields([]byte(scanner.Text()))
 		if len(f) < 2 {
 			hostsArray = append(hostsArray, f)
 			continue
