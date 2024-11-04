@@ -18,6 +18,7 @@ package proxy
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -157,7 +158,10 @@ func (p *EdgeReverseProxy) modifyResponse(resp *http.Response) error {
 			return nil
 		}
 	}
-	p.interceptResponse(info, resp)
+
+	if err := p.interceptResponse(info, resp); err != nil {
+		klog.Errorf("interceptResponse %v %s error: %v", info, resp.Header.Get("Content-Encoding"), err)
+	}
 
 	// cache response data
 	multiRead := MultiWrite(resp.Body, 2)
@@ -326,12 +330,40 @@ func (p *EdgeReverseProxy) interceptListResponse(info *apirequest.RequestInfo, r
 		return nil
 	}
 
-	if strings.HasPrefix(info.Path, "/apis/discovery.k8s.io/v1/endpointslices") {
-		body, _ := ioutil.ReadAll(resp.Body)
-		objList := &discoveryv1.EndpointSliceList{}
-		err := json.Unmarshal(body, objList)
+	// 仅处理下面case，其他场景不处理
+	if !strings.HasPrefix(info.Path, "/apis/discovery.k8s.io/v1/endpointslices") &&
+		!strings.HasPrefix(info.Path, "/apis/discovery.k8s.io/v1beta1/endpointslices") &&
+		!(strings.HasPrefix(info.Path, "/api/v1/services") && p.disableLoadBalancerIngress) {
+		return nil
+	}
+
+	// 当前只支持gzip压缩和非压缩场景，其他场景仅做日志输出，跳过处理
+	if resp.Header.Get("Content-Encoding") != "gzip" && resp.Header.Get("Content-Encoding") != "" {
+		klog.Warningf("Content-Encoding %s not support for %v", resp.Header.Get("Content-Encoding"), info.Path)
+		return nil
+	}
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	var data, rspContent []byte
+	if resp.Header.Get("Content-Encoding") == "" {
+		data = body
+	} else {
+		gzipReader, err := gzip.NewReader(bytes.NewReader(body))
 		if err != nil {
-			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(body))
+			return err
+		}
+		data, err = ioutil.ReadAll(gzipReader)
+		if err != nil {
+			return err
+		}
+		gzipReader.Close()
+	}
+
+	if strings.HasPrefix(info.Path, "/apis/discovery.k8s.io/v1/endpointslices") {
+		objList := &discoveryv1.EndpointSliceList{}
+		err := json.Unmarshal(data, objList)
+		if err != nil {
+			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(data))
 			return err
 		}
 		newItems := make([]discoveryv1.EndpointSlice, len(objList.Items))
@@ -342,14 +374,12 @@ func (p *EdgeReverseProxy) interceptListResponse(info *apirequest.RequestInfo, r
 			newItems[index] = ep
 		}
 		objList.Items = newItems
-		data, _ := json.Marshal(objList)
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+		rspContent, _ = json.Marshal(objList)
 	} else if strings.HasPrefix(info.Path, "/apis/discovery.k8s.io/v1beta1/endpointslices") {
-		body, _ := ioutil.ReadAll(resp.Body)
 		objList := &discoveryv1beta1.EndpointSliceList{}
-		err := json.Unmarshal(body, objList)
+		err := json.Unmarshal(data, objList)
 		if err != nil {
-			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(body))
+			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(data))
 			return err
 		}
 		newItems := make([]discoveryv1beta1.EndpointSlice, len(objList.Items))
@@ -360,14 +390,12 @@ func (p *EdgeReverseProxy) interceptListResponse(info *apirequest.RequestInfo, r
 			newItems[index] = ep
 		}
 		objList.Items = newItems
-		data, _ := json.Marshal(objList)
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+		rspContent, _ = json.Marshal(objList)
 	} else if strings.HasPrefix(info.Path, "/api/v1/services") && p.disableLoadBalancerIngress {
-		body, _ := ioutil.ReadAll(resp.Body)
 		objList := &v1.ServiceList{}
-		err := json.Unmarshal(body, objList)
+		err := json.Unmarshal(data, objList)
 		if err != nil {
-			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(body))
+			klog.Errorf("json.Unmarshal error: %v,info.Path: %v,info.Verb: %v,body: %v", err, info.Path, info.Verb, string(data))
 			return err
 		}
 		newItems := make([]v1.Service, len(objList.Items))
@@ -378,10 +406,20 @@ func (p *EdgeReverseProxy) interceptListResponse(info *apirequest.RequestInfo, r
 			newItems[index] = svc
 		}
 		objList.Items = newItems
-		data, _ := json.Marshal(objList)
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+		rspContent, _ = json.Marshal(objList)
 	}
 
+	var rspData = bytes.NewBuffer(nil)
+	if resp.Header.Get("Content-Encoding") == "" {
+		rspData = bytes.NewBuffer(rspContent)
+	} else {
+		gzipWriter := gzip.NewWriter(rspData)
+		if _, err := gzipWriter.Write(rspContent); err != nil {
+			return err
+		}
+		gzipWriter.Close()
+	}
+	resp.Body = ioutil.NopCloser(rspData)
 	return nil
 }
 
