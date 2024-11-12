@@ -149,7 +149,7 @@ func (s *RunServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.BoltCacheFile, "bolt-cache-file", "/data/lite-apiserver/bolt/superedge.db", "the file for bolt storage")
 	fs.StringVar(&s.NetworkInterface, "network-interface", "", "the network interface list of node, separated by commas")
 	fs.BoolVar(&s.Insecure, "insecure", false, "verify the certificate of kube-apiserver")
-	fs.BoolVar(&s.Incluster, "incluster", false, "use lite-apiserver or kube-apiserver")
+	fs.BoolVar(&s.Incluster, "incluster", true, "use lite-apiserver or kube-apiserver")
 	fs.BoolVar(&s.DisableLoadBalancerIngress, "disableLoadBalancerIngress", true, "disable loadbalance ingress in edge node")
 	fs.StringArrayVar(&s.URLMultiplexCache,
 		"url-mux-cache",
