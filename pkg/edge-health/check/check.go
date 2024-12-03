@@ -108,7 +108,7 @@ func (c CheckEdge) GetNodeList() {
 			}
 			klog.V(6).Infof("unitLabel is %s", unitLabel)
 			if units, ok := config.Data[common.HealthCheckUnitsKey]; !ok || units == "" {
-				nodeSelector = labels.Nothing()
+				nodeSelector = externalNodeSelector
 			} else {
 				nodeSelectorLabel := make(map[string]string, 1)
 				unitSlice := strings.Split(units, ",")
@@ -118,15 +118,18 @@ func (c CheckEdge) GetNodeList() {
 						nodeSelectorLabel[trimName] = v
 					}
 				}
-				labelSelector := &metav1.LabelSelector{
-					MatchLabels: nodeSelectorLabel,
+				if len(nodeSelectorLabel) == 0 {
+					nodeSelector = externalNodeSelector
+				} else {
+					labelSelector := &metav1.LabelSelector{
+						MatchLabels: nodeSelectorLabel,
+					}
+					nodeSelector, err = metav1.LabelSelectorAsSelector(labelSelector)
+					if err != nil {
+						klog.ErrorS(err, "metav1.LabelSelectorAsSelector error")
+						return
+					}
 				}
-				nodeSelector, err = metav1.LabelSelectorAsSelector(labelSelector)
-				if err != nil {
-					klog.ErrorS(err, "metav1.LabelSelectorAsSelector error")
-					return
-				}
-
 			}
 
 			if NodeList, err := NodeMetaManager.NodeMetaILister.List(nodeSelector); err != nil {
