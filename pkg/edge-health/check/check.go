@@ -63,12 +63,12 @@ func NewCheckEdge(checkplugins []checkplugin.CheckPlugin, healthcheckperiod int,
 func (c CheckEdge) GetNodeList() {
 	var host *metav1.PartialObjectMetadata
 
-	masterSelector := labels.NewSelector()
-	masterRequirement, err := labels.NewRequirement(common.MasterLabel, selection.DoesNotExist, []string{})
+	externalNodeSelector := labels.NewSelector()
+	masterRequirement, err := labels.NewRequirement(common.ExternalNodeLabelKey, selection.Equals, []string{common.ExternalNodeLabelValue})
 	if err != nil {
 		klog.Errorf("can't new masterRequirement")
 	}
-	masterSelector = masterSelector.Add(*masterRequirement)
+	externalNodeSelector = externalNodeSelector.Add(*masterRequirement)
 
 	hostObject, err := NodeMetaManager.NodeMetaILister.Get(common.NodeName)
 	if err != nil {
@@ -78,7 +78,7 @@ func (c CheckEdge) GetNodeList() {
 	host = hostObject.(*metav1.PartialObjectMetadata)
 	if config, err := ConfigMapManager.ConfigMapLister.ConfigMaps(common.Namespace).Get(common.EdgeHealthConfigMapName); err != nil { //multi-region cm not found
 		if apierrors.IsNotFound(err) {
-			if NodeList, err := NodeMetaManager.NodeMetaILister.List(masterSelector); err != nil {
+			if NodeList, err := NodeMetaManager.NodeMetaILister.List(externalNodeSelector); err != nil {
 				klog.Errorf("config not exist, get nodes err: %v", err)
 				return
 			} else {
@@ -91,7 +91,7 @@ func (c CheckEdge) GetNodeList() {
 	} else { //node unit check cm found
 		klog.V(4).Infof("cm value is %s", config.Data[common.HealthCheckUnitEnable])
 		if config.Data[common.HealthCheckUnitEnable] == "false" { // unit check closed
-			if NodeList, err := NodeMetaManager.NodeMetaILister.List(masterSelector); err != nil {
+			if NodeList, err := NodeMetaManager.NodeMetaILister.List(externalNodeSelector); err != nil {
 				klog.Errorf("config exist, false, get nodes err : %v", err)
 				return
 			} else {

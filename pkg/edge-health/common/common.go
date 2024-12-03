@@ -32,11 +32,13 @@ const (
 	HmacConfig              = "hmac-config"
 	HmacKey                 = "hmackey"
 	// if without hmac-config configmap and without hmackey, it will use default hmac key
-	DefaultHmacKey   = "hSZbJsKAVmWTxRPi"
-	MasterLabel      = "node-role.kubernetes.io/master"
-	TokenFile        = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	ReListTime       = 2 * time.Minute
-	DefaultNamespace = "kube-system"
+	DefaultHmacKey         = "hSZbJsKAVmWTxRPi"
+	MasterLabel            = "node-role.kubernetes.io/master"
+	TokenFile              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	ReListTime             = 2 * time.Minute
+	DefaultNamespace       = "kube-system"
+	ExternalNodeLabelKey   = "superedge.io/node-edge"
+	ExternalNodeLabelValue = "enable"
 )
 
 var (

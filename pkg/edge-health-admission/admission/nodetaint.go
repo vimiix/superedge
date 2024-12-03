@@ -32,6 +32,10 @@ import (
 	"net/http"
 )
 
+const (
+	ExternalNodeLabel = "superedge.io/node-edge"
+)
+
 type admitFunc func(admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
 
 type Patch struct {
@@ -74,6 +78,11 @@ func nodeTaint(ar admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 		return reviewResponseNode
 	}
 	klog.V(4).Infof("nodeOld is %s", edgeutil.ToJson(nodeOld))
+
+	if _, ok := nodeNew.Labels[ExternalNodeLabel]; !ok {
+		reviewResponse = admissionv1.AdmissionResponse{Allowed: true}
+		return &reviewResponse
+	}
 
 	_, condition := util.GetNodeCondition(&nodeNew.Status, corev1.NodeReady)
 	patches := []*Patch{}
