@@ -81,12 +81,12 @@ func (i *PingCheckPlugin) Type() string {
 }
 
 func (plugin PingCheckPlugin) CheckExecute(wg *sync.WaitGroup) {
-	var err error
 	execwg := sync.WaitGroup{}
 	execwg.Add(len(data.CheckInfoResult.CheckInfo))
 	for k := range data.CheckInfoResult.CopyCheckInfo() {
 		temp := k
 		go func(execwg *sync.WaitGroup) {
+			var err error
 			for i := 0; i < plugin.HealthCheckRetryTime; i++ {
 				if _, err = net.DialTimeout("tcp", temp+":"+strconv.Itoa(plugin.Port), time.Duration(plugin.HealthCheckoutTimeOut)*time.Second); err == nil {
 					break
