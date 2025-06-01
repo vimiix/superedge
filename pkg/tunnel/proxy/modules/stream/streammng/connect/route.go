@@ -129,6 +129,10 @@ func syncCache() error {
 		updateFlag = true
 	} else {
 		for _, v := range edgeNodes {
+			if len(v) != 2 {
+				updateFlag = true
+				continue
+			}
 			if value, ok := Route.EdgeNode[string(v[1])]; ok {
 				if value != string(v[0]) {
 					updateFlag = true
