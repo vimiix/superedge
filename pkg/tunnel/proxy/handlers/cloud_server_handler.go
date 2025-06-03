@@ -84,7 +84,7 @@ func HandleServerConn(proxyConn net.Conn, category string, noAccess func(host st
 			if err != nil {
 				klog.ErrorS(err, "failed to decode authInfo", util.STREAM_TRACE_ID, req.Context().Value(util.STREAM_TRACE_ID))
 				writeErr := util.WriteResponseMsg(proxyConn, fmt.Sprintf("failed to decode authInfo, error:%v", err), req.Context().Value(util.STREAM_TRACE_ID).(string), "Forbidden", http.StatusForbidden)
-				if err != nil {
+				if writeErr != nil {
 					klog.Error(writeErr)
 				}
 				return err

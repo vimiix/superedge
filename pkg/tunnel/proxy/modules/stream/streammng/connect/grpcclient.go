@@ -34,8 +34,8 @@ import (
 )
 
 var kacp = keepalive.ClientParameters{
-	Time:                10 * time.Millisecond,
-	Timeout:             time.Second,
+	Time:                10 * time.Second,
+	Timeout:             5 * time.Second,
 	PermitWithoutStream: true,
 }
 
@@ -47,9 +47,12 @@ func StartClient() (*grpc.ClientConn, error) {
 		klog.ErrorS(err, "failed to load credentials")
 		return nil, err
 	}
-	opts := []grpc.DialOption{grpc.WithKeepaliveParams(kacp), grpc.WithStreamInterceptor(ClientStreamInterceptor), grpc.WithTransportCredentials(creds), grpc.WithConnectParams(grpc.ConnectParams{
-		MinConnectTimeout: 60 * time.Second,
-	}), grpc.WithBlock()}
+	opts := []grpc.DialOption{
+		grpc.WithKeepaliveParams(kacp),
+		grpc.WithStreamInterceptor(ClientStreamInterceptor),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithConnectParams(grpc.ConnectParams{MinConnectTimeout: 60 * time.Second}),
+		grpc.WithBlock()}
 	conn, err := grpc.Dial(conf.TunnelConf.TunnlMode.EDGE.StreamEdge.Client.ServerName, opts...)
 	if err != nil {
 		klog.Error("edge start client fail !")

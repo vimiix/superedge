@@ -44,6 +44,10 @@ func Read(conn net.Conn, node tunnelcontext.Node, category, handleType, uuid str
 				Topic:    uuid,
 				Data:     []byte(err.Error()),
 			}
+			ch := tunnelcontext.GetContext().GetConn(uuid)
+			if ch != nil {
+				ch.Send2Conn(closeMsg)
+			}
 			node.Send2Node(closeMsg)
 			klog.V(2).InfoS("send closeMsg", "closeMsg", closeMsg, util.STREAM_TRACE_ID, uuid)
 			if err != io.EOF {

@@ -18,7 +18,6 @@ package connect
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -44,16 +43,14 @@ import (
 )
 
 var kaep = keepalive.EnforcementPolicy{
-	MinTime:             15 * time.Second,
+	MinTime:             5 * time.Second,
 	PermitWithoutStream: true,
 }
 
 var kasp = keepalive.ServerParameters{
-	MaxConnectionIdle:     time.Duration(math.MaxInt64),
-	MaxConnectionAge:      time.Duration(math.MaxInt64),
 	MaxConnectionAgeGrace: 5 * time.Second,
-	Time:                  5 * time.Second,
-	Timeout:               1 * time.Second,
+	Time:                  10 * time.Second,
+	Timeout:               5 * time.Second,
 }
 
 func StartServer() {
@@ -62,7 +59,12 @@ func StartServer() {
 		klog.Errorf("failed to create credentials: %v", err)
 		return
 	}
-	opts := []grpc.ServerOption{grpc.KeepaliveEnforcementPolicy(kaep), grpc.KeepaliveParams(kasp), grpc.StreamInterceptor(ServerStreamInterceptor), grpc.Creds(creds)}
+	opts := []grpc.ServerOption{
+		grpc.KeepaliveEnforcementPolicy(kaep),
+		grpc.KeepaliveParams(kasp),
+		grpc.StreamInterceptor(ServerStreamInterceptor),
+		grpc.Creds(creds),
+	}
 	s := grpc.NewServer(opts...)
 	proto.RegisterStreamServer(s, &stream.Server{})
 

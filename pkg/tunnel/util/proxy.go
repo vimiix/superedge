@@ -5,6 +5,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 )
@@ -175,24 +176,64 @@ func (cfg *Config) UseProxy(addr string) bool {
 	return true
 }
 
+func isClosedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// 检查是否是连接已关闭的错误
+	return strings.Contains(err.Error(), "use of closed network connection") ||
+		strings.Contains(err.Error(), "closed pipe") ||
+		strings.Contains(err.Error(), "broken pipe")
+}
+
 // ConnCopyAndClose process conn copy and close conn
 func ConnCopyAndClose(dst, src net.Conn, uuid string) error {
-	// copy data to remoteConn
+	var (
+		firstErr error
+		mu       sync.Mutex
+	)
+
+	var wg sync.WaitGroup
+	// send data to remoteConn
+	wg.Add(1)
 	go func() {
-		_, writeErr := io.Copy(dst, src)
-		if writeErr != nil {
-			klog.ErrorS(writeErr, "failed to copy data to remoteConn", STREAM_TRACE_ID, uuid)
+		defer wg.Done()
+		defer dst.Close()
+		defer src.Close()
+		_, sendErr := io.Copy(dst, src)
+		if sendErr != nil {
+			if isClosedError(sendErr) {
+				return
+			}
+			klog.ErrorS(sendErr, "failed to send data to remoteConn", STREAM_TRACE_ID, uuid)
+			mu.Lock()
+			if firstErr == nil {
+				firstErr = sendErr
+			}
+			mu.Unlock()
 		}
-		dst.Close()
 	}()
 
 	// read data from remoteConn
-	_, err := io.Copy(src, dst)
-	if err != nil {
-		klog.ErrorS(err, "failed to read data from remoteConn", STREAM_TRACE_ID, uuid)
-		return err
-	}
-	src.Close()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer dst.Close()
+		defer src.Close()
+		_, readErr := io.Copy(src, dst)
+		if readErr != nil {
+			if isClosedError(readErr) {
+				return
+			}
+			klog.ErrorS(readErr, "failed to read data from remoteConn", STREAM_TRACE_ID, uuid)
+			mu.Lock()
+			if firstErr == nil {
+				firstErr = readErr
+			}
+			mu.Unlock()
+		}
+	}()
 
-	return nil
+	wg.Wait()
+	return firstErr
 }
