@@ -19,13 +19,14 @@ package util
 import (
 	"bufio"
 	"bytes"
-	"github.com/tatsushid/go-fastping"
 	"io"
-	"k8s.io/klog/v2"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/tatsushid/go-fastping"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -93,6 +94,10 @@ func WriteResponseMsg(conn net.Conn, respMsg, tranceId, status string, statusCod
 		return err
 	}
 	return nil
+}
+
+func NotFoundMsg(proxyConn net.Conn, respMsg, tranceId string) error {
+	return WriteResponseMsg(proxyConn, respMsg, tranceId, "Not Found", http.StatusNotFound)
 }
 
 func InternalServerErrorMsg(proxyConn net.Conn, respMsg, tranceId string) error {

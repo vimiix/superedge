@@ -176,12 +176,13 @@ func (cfg *Config) UseProxy(addr string) bool {
 	return true
 }
 
-func isClosedError(err error) bool {
+func IsNetworkClosedError(err error) bool {
 	if err == nil {
 		return false
 	}
 	// 检查是否是连接已关闭的错误
-	return strings.Contains(err.Error(), "use of closed network connection") ||
+	return err == io.EOF ||
+		strings.Contains(err.Error(), "use of closed network connection") ||
 		strings.Contains(err.Error(), "closed pipe") ||
 		strings.Contains(err.Error(), "broken pipe")
 }
@@ -202,7 +203,7 @@ func ConnCopyAndClose(dst, src net.Conn, uuid string) error {
 		defer src.Close()
 		_, sendErr := io.Copy(dst, src)
 		if sendErr != nil {
-			if isClosedError(sendErr) {
+			if IsNetworkClosedError(sendErr) {
 				return
 			}
 			klog.ErrorS(sendErr, "failed to send data to remoteConn", STREAM_TRACE_ID, uuid)
@@ -222,7 +223,7 @@ func ConnCopyAndClose(dst, src net.Conn, uuid string) error {
 		defer src.Close()
 		_, readErr := io.Copy(src, dst)
 		if readErr != nil {
-			if isClosedError(readErr) {
+			if IsNetworkClosedError(readErr) {
 				return
 			}
 			klog.ErrorS(readErr, "failed to read data from remoteConn", STREAM_TRACE_ID, uuid)

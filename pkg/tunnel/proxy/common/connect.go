@@ -14,7 +14,6 @@ limitations under the License.
 package common
 
 import (
-	"io"
 	"net"
 
 	"github.com/superedge/superedge/pkg/tunnel/proto"
@@ -50,7 +49,7 @@ func Read(conn net.Conn, node tunnelcontext.Node, category, handleType, uuid str
 			}
 			node.Send2Node(closeMsg)
 			klog.V(2).InfoS("send closeMsg", "closeMsg", closeMsg, util.STREAM_TRACE_ID, uuid)
-			if err != io.EOF {
+			if !util.IsNetworkClosedError(err) {
 				klog.ErrorS(err, "failed to read data", util.STREAM_TRACE_ID, uuid)
 			}
 			return

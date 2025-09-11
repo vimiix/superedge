@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -67,7 +68,7 @@ func ForwardNode(nodename, host, port, category string, proxyConn net.Conn, ctx 
 	} else {
 
 		//From tunnel-coredns, query the pods of tunnel-cloud where edge nodes establish long-term connections
-		addr, ok := connect.Route.EdgeNode[nodename]
+		tunnelCloudPodIP, ok := connect.Route.EdgeNode[nodename]
 
 		//forward cloud node
 		if !ok {
@@ -75,6 +76,16 @@ func ForwardNode(nodename, host, port, category string, proxyConn net.Conn, ctx 
 			if cloudOk {
 				return DirectDial(host, port, category, proxyConn, ctx)
 			}
+			err := fmt.Errorf("node %q route not found", nodename)
+			util.NotFoundMsg(proxyConn, err.Error(), ctx.Value(util.STREAM_TRACE_ID).(string))
+			return err
+		}
+
+		// 如果不判断这个地址是否为当前pod的地址，会导致死循环（自己请求自己）
+		if tunnelCloudPodIP == "" || tunnelCloudPodIP == os.Getenv("POD_IP") {
+			err := fmt.Errorf("node %s not online", nodename)
+			util.NotFoundMsg(proxyConn, err.Error(), ctx.Value(util.STREAM_TRACE_ID).(string))
+			return err
 		}
 
 		//forward edge node
@@ -92,7 +103,7 @@ func ForwardNode(nodename, host, port, category string, proxyConn net.Conn, ctx 
 
 			return fmt.Errorf("loop forwarding, remoteAddr:%s localAddr:%s, %s:%s", proxyConn.RemoteAddr().String(), proxyConn.LocalAddr().String(), util.STREAM_TRACE_ID, ctx.Value(util.STREAM_TRACE_ID))
 		}
-		remoteConn, err := GetRemoteConn(category, addr)
+		remoteConn, err := GetRemoteConn(category, tunnelCloudPodIP)
 		if err != nil {
 			klog.ErrorS(err, "failed to establish a connection between proxyServer and backendServer", util.STREAM_TRACE_ID, ctx.Value(util.STREAM_TRACE_ID))
 
