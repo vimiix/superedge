@@ -58,19 +58,6 @@ func HttpProxyEdgeServer(conn net.Conn) {
 		}
 
 	}
-	podIp := net.ParseIP(host)
-	if podIp == nil {
-		// 校验serviceName的格式
-		if len(strings.Split(host, ".")) < 2 {
-			klog.Errorf("the service format is incorrect, the supported format: serviceName.nameSpace")
-			writeErr := util.InternalServerErrorMsg(conn,
-				fmt.Sprintf("the service format is incorrect, supported format: serviceName.nameSpace"), uuid)
-			if writeErr != nil {
-				klog.Error(writeErr)
-			}
-			return
-		}
-	}
 	if req.Method == http.MethodConnect {
 		node := tunnelcontext.GetContext().GetNode(os.Getenv(util.NODE_NAME_ENV))
 		if node != nil {
